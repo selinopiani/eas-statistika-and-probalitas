@@ -1,0 +1,982 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Kalkulator Analisis Regresi Linier untuk Load Testing Server">
+    <title>Analisis Regresi Linier - Load Testing</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        @keyframes slideInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes scaleIn {
+            from {
+                opacity: 0;
+                transform: scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+        
+        .animate-slide-up {
+            animation: slideInUp 0.4s ease-out;
+        }
+        
+        .animate-fade-in {
+            animation: fadeIn 0.3s ease-out;
+        }
+        
+        .animate-scale-in {
+            animation: scaleIn 0.3s ease-out;
+        }
+        
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+        
+        .card-shadow {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 
+                        0 2px 4px -1px rgba(0, 0, 0, 0.03);
+        }
+        
+        .card-shadow-lg {
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 
+                        0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        
+        input:focus {
+            outline: none;
+        }
+        
+        .gradient-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .gradient-accent {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+        
+        .btn-primary {
+            @apply bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 
+                   text-white font-medium px-6 py-2.5 rounded-xl transition-all duration-200 
+                   shadow-md hover:shadow-lg transform hover:-translate-y-0.5;
+        }
+        
+        .btn-secondary {
+            @apply bg-white hover:bg-gray-50 text-gray-700 font-medium px-6 py-2.5 rounded-xl 
+                   transition-all duration-200 border border-gray-200 shadow-sm hover:shadow-md 
+                   transform hover:-translate-y-0.5;
+        }
+        
+        .input-modern {
+            @apply w-full px-4 py-2.5 border border-gray-200 rounded-lg text-center 
+                   focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 
+                   transition-all duration-200 bg-white;
+        }
+        
+        .stat-card {
+            @apply bg-gradient-to-br from-gray-50 to-white p-4 rounded-xl border border-gray-100;
+        }
+        
+        .toast-container {
+            position: fixed;
+            top: 1.5rem;
+            right: 1.5rem;
+            z-index: 9999;
+            max-width: 400px;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 min-h-screen py-8 px-4">
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast-container hidden">
+        <div class="glass-effect rounded-2xl shadow-2xl p-4 flex items-center gap-3 border border-white/20 animate-scale-in">
+            <div id="toastIcon" class="flex-shrink-0"></div>
+            <div class="flex-1">
+                <p id="toastMessage" class="text-sm font-medium text-gray-800"></p>
+            </div>
+            <button onclick="hideToast()" class="flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 hidden flex items-center justify-center">
+        <div class="glass-effect rounded-3xl p-8 flex flex-col items-center gap-4 card-shadow-lg">
+            <div class="animate-spin">
+                <i data-lucide="loader-2" class="w-12 h-12 text-violet-600"></i>
+            </div>
+            <p class="text-gray-700 font-medium">Menghitung regresi...</p>
+        </div>
+    </div>
+
+    <div class="max-w-7xl mx-auto">
+        
+        <!-- Header -->
+        <div class="text-center mb-8 animate-slide-up">
+            <div class="inline-flex items-center justify-center gap-3 mb-3">
+                <div class="p-3 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-2xl shadow-lg">
+                    <i data-lucide="trending-up" class="w-8 h-8 text-white"></i>
+                </div>
+            </div>
+            <h1 class="text-4xl font-bold text-gray-800 mb-2">Analisis Regresi Linier</h1>
+            <p class="text-gray-600 max-w-2xl mx-auto">
+                Analisis hubungan Concurrent Users (X) dan Response Time (Y) untuk optimasi performa server
+            </p>
+        </div>
+
+        <!-- Main Content -->
+        <div class="grid lg:grid-cols-3 gap-6">
+            
+            <!-- Left Column: Input Data -->
+            <div class="lg:col-span-2 space-y-6">
+                
+                <!-- Data Input Card -->
+                <div class="glass-effect rounded-2xl p-6 card-shadow-lg animate-slide-up" style="animation-delay: 0.1s">
+                    <div class="flex items-center justify-between mb-6">
+                        <div class="flex items-center gap-3">
+                            <div class="p-2 bg-violet-100 rounded-xl">
+                                <i data-lucide="table" class="w-5 h-5 text-violet-600"></i>
+                            </div>
+                            <h2 class="text-xl font-semibold text-gray-800">Data Pengujian</h2>
+                        </div>
+                        <span class="text-xs font-medium text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+                            <span id="dataCount">2</span> data points
+                        </span>
+                    </div>
+                    
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead>
+                                <tr class="border-b border-gray-200">
+                                    <th class="pb-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-16">No</th>
+                                    <th class="pb-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                                        <div class="flex items-center gap-2">
+                                            <i data-lucide="users" class="w-4 h-4"></i>
+                                            <span>Concurrent Users</span>
+                                        </div>
+                                    </th>
+                                    <th class="pb-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                                        <div class="flex items-center gap-2">
+                                            <i data-lucide="clock" class="w-4 h-4"></i>
+                                            <span>Response Time (ms)</span>
+                                        </div>
+                                    </th>
+                                    <th class="pb-3 w-20"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="dataBody" class="divide-y divide-gray-100">
+                                <tr class="group hover:bg-violet-50/50 transition-colors">
+                                    <td class="py-3 text-sm text-gray-600 font-medium">1</td>
+                                    <td class="py-3">
+                                        <input type="number" class="x-input input-modern" value="10" min="0" step="1">
+                                    </td>
+                                    <td class="py-3">
+                                        <input type="number" class="y-input input-modern" value="45" min="0" step="0.01">
+                                    </td>
+                                    <td class="py-3">
+                                        <button onclick="removeRow(this)" class="opacity-0 group-hover:opacity-100 transition-opacity p-2 hover:bg-red-100 rounded-lg text-red-600">
+                                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                <tr class="group hover:bg-violet-50/50 transition-colors">
+                                    <td class="py-3 text-sm text-gray-600 font-medium">2</td>
+                                    <td class="py-3">
+                                        <input type="number" class="x-input input-modern" value="20" min="0" step="1">
+                                    </td>
+                                    <td class="py-3">
+                                        <input type="number" class="y-input input-modern" value="75" min="0" step="0.01">
+                                    </td>
+                                    <td class="py-3">
+                                        <button onclick="removeRow(this)" class="opacity-0 group-hover:opacity-100 transition-opacity p-2 hover:bg-red-100 rounded-lg text-red-600">
+                                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="flex flex-wrap gap-3 mt-6 pt-6 border-t border-gray-200">
+                        <button onclick="addRow()" class="btn-secondary inline-flex items-center gap-2">
+                            <i data-lucide="plus" class="w-4 h-4"></i>
+                            <span>Tambah Baris</span>
+                        </button>
+                        <button onclick="loadSampleData()" class="btn-secondary inline-flex items-center gap-2">
+                            <i data-lucide="file-text" class="w-4 h-4"></i>
+                            <span>Data Contoh</span>
+                        </button>
+                        <button onclick="resetData()" class="btn-secondary inline-flex items-center gap-2">
+                            <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                            <span>Reset</span>
+                        </button>
+                        <div class="flex-1"></div>
+                        <button onclick="calculate()" class="btn-primary inline-flex items-center gap-2">
+                            <i data-lucide="calculator" class="w-5 h-5"></i>
+                            <span>Hitung Regresi</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Results Section -->
+                <div id="resultsSection" class="hidden space-y-6">
+                    
+                    <!-- Chart Card -->
+                    <div class="glass-effect rounded-2xl p-6 card-shadow-lg animate-slide-up">
+                        <div class="flex items-center gap-3 mb-6">
+                            <div class="p-2 bg-indigo-100 rounded-xl">
+                                <i data-lucide="line-chart" class="w-5 h-5 text-indigo-600"></i>
+                            </div>
+                            <h3 class="text-lg font-semibold text-gray-800">Visualisasi Data</h3>
+                        </div>
+                        <div class="bg-white rounded-xl p-4 border border-gray-100">
+                            <canvas id="regressionChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Prediction Card -->
+                    <div class="glass-effect rounded-2xl p-6 card-shadow-lg animate-slide-up">
+                        <div class="flex items-center gap-3 mb-6">
+                            <div class="p-2 bg-amber-100 rounded-xl">
+                                <i data-lucide="target" class="w-5 h-5 text-amber-600"></i>
+                            </div>
+                            <h3 class="text-lg font-semibold text-gray-800">Prediksi Kapasitas</h3>
+                        </div>
+                        
+                        <div class="flex items-center gap-4 mb-6">
+                            <div class="flex-1">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Batas Response Time (ms)</label>
+                                <input type="number" id="maxResponseTime" value="400" min="0" step="10" 
+                                       class="input-modern">
+                            </div>
+                            <button onclick="calculateMaxUsers()" class="btn-primary self-end inline-flex items-center gap-2 whitespace-nowrap">
+                                <i data-lucide="zap" class="w-4 h-4"></i>
+                                <span>Prediksi</span>
+                            </button>
+                        </div>
+                        
+                        <div id="maxUsersResult" class="hidden bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-6 border border-green-200 animate-scale-in">
+                            <div class="text-center">
+                                <p class="text-sm font-medium text-gray-600 mb-2">Estimasi Maksimal</p>
+                                <div id="maxUsersNumber" class="text-5xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent mb-3"></div>
+                                <p id="maxUsersExplanation" class="text-sm text-gray-700 leading-relaxed"></p>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Right Column: Statistics & Results -->
+            <div class="space-y-6">
+                
+                <!-- Quick Actions -->
+                <div class="glass-effect rounded-2xl p-6 card-shadow-lg animate-slide-up" style="animation-delay: 0.2s">
+                    <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                        <i data-lucide="zap" class="w-4 h-4"></i>
+                        Quick Actions
+                    </h3>
+                    <div class="space-y-2">
+                        <button onclick="saveToLocalStorage()" class="w-full btn-secondary text-sm justify-center">
+                            <i data-lucide="save" class="w-4 h-4"></i>
+                            <span>Simpan Data</span>
+                        </button>
+                        <button onclick="exportResults()" class="w-full btn-secondary text-sm justify-center">
+                            <i data-lucide="download" class="w-4 h-4"></i>
+                            <span>Export Hasil</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Results Cards -->
+                <div id="statsCards" class="hidden space-y-6">
+                    
+                    <!-- Equation Card -->
+                    <div class="glass-effect rounded-2xl p-6 card-shadow-lg animate-slide-up" style="animation-delay: 0.3s">
+                        <div class="flex items-center gap-3 mb-4">
+                            <div class="p-2 bg-pink-100 rounded-xl">
+                                <i data-lucide="function-square" class="w-5 h-5 text-pink-600"></i>
+                            </div>
+                            <h3 class="text-lg font-semibold text-gray-800">Persamaan</h3>
+                        </div>
+                        <div class="bg-gradient-to-br from-pink-500 to-rose-500 rounded-xl p-6 text-white">
+                            <p class="text-sm opacity-90 mb-2">Model Regresi</p>
+                            <div id="equation" class="text-2xl font-bold mb-4"></div>
+                            <div id="rSquared" class="text-xs opacity-80 border-t border-white/20 pt-3"></div>
+                        </div>
+                    </div>
+
+                    <!-- Accuracy Card -->
+                    <div class="glass-effect rounded-2xl p-6 card-shadow-lg animate-slide-up" style="animation-delay: 0.4s">
+                        <div class="flex items-center gap-3 mb-4">
+                            <div class="p-2 bg-blue-100 rounded-xl">
+                                <i data-lucide="activity" class="w-5 h-5 text-blue-600"></i>
+                            </div>
+                            <h3 class="text-lg font-semibold text-gray-800">Akurasi</h3>
+                        </div>
+                        <div id="accuracyBadge" class="text-center mb-4">
+                            <div id="accuracyPercentage" class="text-4xl font-bold text-gray-800 mb-2"></div>
+                            <p id="accuracyText" class="text-sm text-gray-600"></p>
+                        </div>
+                        <div id="accuracyBar" class="h-2 bg-gray-200 rounded-full overflow-hidden">
+                            <div id="accuracyProgress" class="h-full bg-gradient-to-r from-violet-500 to-indigo-500 transition-all duration-500" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <!-- Statistics Card -->
+                    <div class="glass-effect rounded-2xl p-6 card-shadow-lg animate-slide-up" style="animation-delay: 0.5s">
+                        <div class="flex items-center gap-3 mb-4">
+                            <div class="p-2 bg-emerald-100 rounded-xl">
+                                <i data-lucide="bar-chart-2" class="w-5 h-5 text-emerald-600"></i>
+                            </div>
+                            <h3 class="text-lg font-semibold text-gray-800">Statistik</h3>
+                        </div>
+                        <div id="detailedStats" class="space-y-3"></div>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Footer -->
+        <div class="text-center mt-8 text-sm text-gray-500">
+            <p>Kalkulator Regresi Linier • Seli Nopiani</p>
+        </div>
+
+    </div>
+
+    <script>
+        // Constants
+        const CHART_COLORS = {
+            data: '#8b5cf6',
+            regression: '#ec4899',
+            grid: '#f1f5f9'
+        };
+
+        const PRECISION_LEVELS = {
+            EXCELLENT: 0.9,
+            GOOD: 0.7,
+            FAIR: 0.5
+        };
+
+        // Global Variables
+        let chartInstance = null;
+        let regressionA, regressionB, r2Value;
+        let currentData = [];
+
+        // Initialize Lucide Icons
+        function initIcons() {
+            lucide.createIcons();
+        }
+
+        // Toast Notification System
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toastMessage');
+            const toastIcon = document.getElementById('toastIcon');
+            
+            const icons = {
+                success: '<i data-lucide="check-circle-2" class="w-5 h-5 text-emerald-500"></i>',
+                error: '<i data-lucide="alert-circle" class="w-5 h-5 text-red-500"></i>',
+                warning: '<i data-lucide="alert-triangle" class="w-5 h-5 text-amber-500"></i>',
+                info: '<i data-lucide="info" class="w-5 h-5 text-blue-500"></i>'
+            };
+            
+            toastMessage.textContent = message;
+            toastIcon.innerHTML = icons[type] || icons.info;
+            toast.classList.remove('hidden');
+            initIcons();
+            
+            setTimeout(() => {
+                hideToast();
+            }, 4000);
+        }
+
+        function hideToast() {
+            document.getElementById('toast').classList.add('hidden');
+        }
+
+        function showLoading() {
+            document.getElementById('loadingOverlay').classList.remove('hidden');
+            initIcons();
+        }
+
+        function hideLoading() {
+            document.getElementById('loadingOverlay').classList.add('hidden');
+        }
+
+        // Update data count
+        function updateDataCount() {
+            const count = document.querySelectorAll('#dataBody tr').length;
+            document.getElementById('dataCount').textContent = count;
+        }
+
+        // Validation Functions
+        function validateInput(x, y, rowIndex) {
+            if (isNaN(x) || isNaN(y)) {
+                showToast(`Data pada baris ${rowIndex + 1} tidak valid`, 'error');
+                return false;
+            }
+            
+            if (x < 0) {
+                showToast(`Jumlah user pada baris ${rowIndex + 1} tidak boleh negatif`, 'error');
+                return false;
+            }
+            
+            if (y < 0) {
+                showToast(`Response time pada baris ${rowIndex + 1} tidak boleh negatif`, 'error');
+                return false;
+            }
+            
+            return true;
+        }
+
+        function validateDataSet(data) {
+            if (data.length < 2) {
+                showToast('Minimal 2 data diperlukan untuk analisis regresi', 'warning');
+                return false;
+            }
+
+            const xValues = data.map(d => d.x);
+            const uniqueX = new Set(xValues);
+            if (xValues.length !== uniqueX.size) {
+                showToast('Terdapat nilai X yang duplikat. Untuk hasil yang lebih baik, gunakan nilai X yang berbeda.', 'warning');
+            }
+
+            if (uniqueX.size === 1) {
+                showToast('Semua nilai X sama. Tidak dapat menghitung regresi.', 'error');
+                return false;
+            }
+
+            return true;
+        }
+
+        // Row Management
+        function addRow() {
+            const tbody = document.getElementById('dataBody');
+            const rowCount = tbody.rows.length + 1;
+            const row = tbody.insertRow();
+            row.className = 'group hover:bg-violet-50/50 transition-colors';
+            row.innerHTML = `
+                <td class="py-3 text-sm text-gray-600 font-medium">${rowCount}</td>
+                <td class="py-3">
+                    <input type="number" class="x-input input-modern" min="0" step="1">
+                </td>
+                <td class="py-3">
+                    <input type="number" class="y-input input-modern" min="0" step="0.01">
+                </td>
+                <td class="py-3">
+                    <button onclick="removeRow(this)" class="opacity-0 group-hover:opacity-100 transition-opacity p-2 hover:bg-red-100 rounded-lg text-red-600">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    </button>
+                </td>
+            `;
+            initIcons();
+            updateDataCount();
+            showToast('Baris data baru ditambahkan', 'success');
+        }
+
+        function removeRow(btn) {
+            const tbody = document.getElementById('dataBody');
+            if (tbody.rows.length <= 2) {
+                showToast('Minimal 2 data diperlukan', 'warning');
+                return;
+            }
+            btn.closest('tr').remove();
+            updateRowNumbers();
+            updateDataCount();
+            showToast('Baris data dihapus', 'info');
+        }
+
+        function updateRowNumbers() {
+            document.querySelectorAll('#dataBody tr').forEach((row, i) => {
+                row.cells[0].textContent = i + 1;
+            });
+        }
+
+        // Load Sample Data
+        function loadSampleData() {
+            const tbody = document.getElementById('dataBody');
+            tbody.innerHTML = '';
+            
+            const sampleData = [
+                [10, 45],
+                [20, 75],
+                [30, 110],
+                [40, 140],
+                [50, 175],
+                [60, 205]
+            ];
+
+            sampleData.forEach(([x, y], index) => {
+                const row = tbody.insertRow();
+                row.className = 'group hover:bg-violet-50/50 transition-colors';
+                row.innerHTML = `
+                    <td class="py-3 text-sm text-gray-600 font-medium">${index + 1}</td>
+                    <td class="py-3">
+                        <input type="number" class="x-input input-modern" value="${x}" min="0" step="1">
+                    </td>
+                    <td class="py-3">
+                        <input type="number" class="y-input input-modern" value="${y}" min="0" step="0.01">
+                    </td>
+                    <td class="py-3">
+                        <button onclick="removeRow(this)" class="opacity-0 group-hover:opacity-100 transition-opacity p-2 hover:bg-red-100 rounded-lg text-red-600">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
+                    </td>
+                `;
+            });
+            
+            initIcons();
+            updateDataCount();
+            showToast('Data contoh berhasil dimuat', 'success');
+        }
+
+        // Main Calculation Function
+        function calculate() {
+            showLoading();
+            
+            setTimeout(() => {
+                const xInputs = document.querySelectorAll('.x-input');
+                const yInputs = document.querySelectorAll('.y-input');
+                let data = [];
+                let n = 0, sumX = 0, sumY = 0, sumX2 = 0, sumY2 = 0, sumXY = 0;
+
+                xInputs.forEach((input, i) => {
+                    const x = parseFloat(input.value);
+                    const y = parseFloat(yInputs[i].value);
+                    
+                    if (!validateInput(x, y, i)) {
+                        hideLoading();
+                        return;
+                    }
+                    
+                    if (!isNaN(x) && !isNaN(y)) {
+                        data.push({x, y});
+                        sumX += x;
+                        sumY += y;
+                        sumX2 += x * x;
+                        sumY2 += y * y;
+                        sumXY += x * y;
+                        n++;
+                    }
+                });
+
+                if (!validateDataSet(data)) {
+                    hideLoading();
+                    return;
+                }
+
+                // Calculate Regression Coefficients
+                const numeratorB = (n * sumXY - sumX * sumY);
+                const denominatorB = (n * sumX2 - sumX * sumX);
+                
+                if (denominatorB === 0) {
+                    hideLoading();
+                    showToast('Tidak dapat menghitung regresi dengan data ini', 'error');
+                    return;
+                }
+                
+                regressionB = numeratorB / denominatorB;
+                regressionA = (sumY - regressionB * sumX) / n;
+
+                // Calculate R-squared
+                const numeratorR = numeratorB;
+                const denominatorR = Math.sqrt((n * sumX2 - sumX * sumX) * (n * sumY2 - sumY * sumY));
+                
+                if (denominatorR === 0) {
+                    r2Value = 0;
+                } else {
+                    const r = numeratorR / denominatorR;
+                    r2Value = r * r;
+                }
+
+                currentData = data;
+                displayResults(data, n, sumX, sumY);
+                updateChart(data);
+                
+                hideLoading();
+                showToast('Perhitungan regresi berhasil!', 'success');
+            }, 300);
+        }
+
+        // Display Results
+        function displayResults(data, n, sumX, sumY) {
+            document.getElementById('resultsSection').classList.remove('hidden');
+            document.getElementById('statsCards').classList.remove('hidden');
+            
+            // Equation
+            const sign = regressionB >= 0 ? '+' : '';
+            document.getElementById('equation').textContent = `Y = ${regressionA.toFixed(2)} ${sign} ${regressionB.toFixed(2)}X`;
+            document.getElementById('rSquared').textContent = `R² = ${r2Value.toFixed(4)}`;
+            
+            // Accuracy
+            const percentage = (r2Value * 100).toFixed(1);
+            document.getElementById('accuracyPercentage').textContent = `${percentage}%`;
+            document.getElementById('accuracyProgress').style.width = `${percentage}%`;
+            
+            let accText = '';
+            if (r2Value >= PRECISION_LEVELS.EXCELLENT) {
+                accText = `Sangat Akurat - Model dapat menjelaskan variasi data dengan sangat baik`;
+            } else if (r2Value >= PRECISION_LEVELS.GOOD) {
+                accText = `Cukup Akurat - Model memiliki korelasi yang kuat`;
+            } else if (r2Value >= PRECISION_LEVELS.FAIR) {
+                accText = `Akurasi Sedang - Ada korelasi namun tidak terlalu kuat`;
+            } else {
+                accText = `Akurasi Rendah - Hubungan antar variabel tidak terlalu linier`;
+            }
+            document.getElementById('accuracyText').textContent = accText;
+
+            // Detailed Statistics
+            const meanX = sumX / n;
+            const meanY = sumY / n;
+            const correlation = Math.sqrt(r2Value) * (regressionB >= 0 ? 1 : -1);
+            
+            const statsHTML = `
+                <div class="stat-card">
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm text-gray-600">Data Points</span>
+                        <span class="text-lg font-bold text-gray-800">${n}</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm text-gray-600">Mean X</span>
+                        <span class="text-lg font-bold text-gray-800">${meanX.toFixed(2)}</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm text-gray-600">Mean Y</span>
+                        <span class="text-lg font-bold text-gray-800">${meanY.toFixed(2)}</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm text-gray-600">Correlation (r)</span>
+                        <span class="text-lg font-bold text-gray-800">${correlation.toFixed(4)}</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm text-gray-600">Slope (b)</span>
+                        <span class="text-lg font-bold text-gray-800">${regressionB.toFixed(4)}</span>
+                    </div>
+                </div>
+            `;
+            document.getElementById('detailedStats').innerHTML = statsHTML;
+            
+            // Smooth scroll
+            setTimeout(() => {
+                document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }, 100);
+        }
+
+        // Update Chart
+        function updateChart(data) {
+            const ctx = document.getElementById('regressionChart').getContext('2d');
+            
+            if (chartInstance) {
+                chartInstance.destroy();
+                chartInstance = null;
+            }
+
+            const minX = Math.min(...data.map(d => d.x));
+            const maxX = Math.max(...data.map(d => d.x));
+            const padding = (maxX - minX) * 0.1;
+            const chartMaxX = maxX + padding;
+            
+            const regressionLine = [
+                { x: 0, y: regressionA },
+                { x: chartMaxX, y: regressionA + (regressionB * chartMaxX) }
+            ];
+
+            chartInstance = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [{
+                        label: 'Data Pengujian',
+                        data: data,
+                        backgroundColor: CHART_COLORS.data,
+                        borderColor: CHART_COLORS.data,
+                        pointRadius: 7,
+                        pointHoverRadius: 9,
+                        pointBackgroundColor: CHART_COLORS.data,
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2
+                    }, {
+                        label: 'Garis Regresi',
+                        data: regressionLine,
+                        type: 'line',
+                        borderColor: CHART_COLORS.regression,
+                        borderWidth: 3,
+                        fill: false,
+                        pointRadius: 0,
+                        tension: 0,
+                        borderDash: [0]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                usePointStyle: true,
+                                padding: 15,
+                                font: {
+                                    size: 12,
+                                    family: 'Inter'
+                                }
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            padding: 12,
+                            cornerRadius: 8,
+                            titleFont: {
+                                size: 13,
+                                family: 'Inter'
+                            },
+                            bodyFont: {
+                                size: 12,
+                                family: 'Inter'
+                            },
+                            callbacks: {
+                                label: function(context) {
+                                    return `Users: ${context.parsed.x}, Time: ${context.parsed.y.toFixed(2)} ms`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { 
+                            title: { 
+                                display: true, 
+                                text: 'Concurrent Users',
+                                font: { 
+                                    size: 13, 
+                                    weight: '600',
+                                    family: 'Inter'
+                                },
+                                color: '#6b7280'
+                            },
+                            grid: {
+                                color: CHART_COLORS.grid,
+                                drawBorder: false
+                            },
+                            ticks: {
+                                font: {
+                                    size: 11,
+                                    family: 'Inter'
+                                },
+                                color: '#9ca3af'
+                            }
+                        },
+                        y: { 
+                            title: { 
+                                display: true, 
+                                text: 'Response Time (ms)',
+                                font: { 
+                                    size: 13, 
+                                    weight: '600',
+                                    family: 'Inter'
+                                },
+                                color: '#6b7280'
+                            },
+                            grid: {
+                                color: CHART_COLORS.grid,
+                                drawBorder: false
+                            },
+                            ticks: {
+                                font: {
+                                    size: 11,
+                                    family: 'Inter'
+                                },
+                                color: '#9ca3af'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Calculate Maximum Users
+        function calculateMaxUsers() {
+            const maxY = parseFloat(document.getElementById('maxResponseTime').value);
+            
+            if (isNaN(maxY) || maxY <= 0) {
+                showToast('Masukkan batas response time yang valid', 'warning');
+                return;
+            }
+
+            if (regressionB === 0) {
+                showToast('Tidak dapat menghitung prediksi dengan slope = 0', 'error');
+                return;
+            }
+
+            if (regressionB < 0) {
+                showToast('Model menunjukkan hubungan negatif. Prediksi mungkin tidak akurat.', 'warning');
+            }
+            
+            const maxX = Math.floor((maxY - regressionA) / regressionB);
+            
+            if (maxX < 0) {
+                showToast('Prediksi menghasilkan nilai negatif. Periksa kembali batas response time.', 'error');
+                return;
+            }
+            
+            const predictedY = regressionA + (regressionB * maxX);
+            
+            const resultBox = document.getElementById('maxUsersResult');
+            resultBox.classList.remove('hidden');
+            document.getElementById('maxUsersNumber').textContent = `${maxX} Users`;
+            
+            const confidence = r2Value >= 0.7 ? 'tinggi' : r2Value >= 0.5 ? 'sedang' : 'rendah';
+            document.getElementById('maxUsersExplanation').innerHTML = 
+                `Pada <strong>${maxX} concurrent users</strong>, estimasi response time adalah <strong>${predictedY.toFixed(2)} ms</strong>. Dengan R² = ${r2Value.toFixed(4)}, tingkat kepercayaan prediksi ini adalah <strong>${confidence}</strong>.`;
+            
+            initIcons();
+            showToast('Prediksi kapasitas berhasil dihitung', 'success');
+        }
+
+        // Local Storage Functions
+        function saveToLocalStorage() {
+            const data = {
+                timestamp: new Date().toISOString(),
+                regressionData: currentData,
+                coefficients: { a: regressionA, b: regressionB },
+                r2: r2Value
+            };
+            
+            try {
+                localStorage.setItem('regressionAnalysis', JSON.stringify(data));
+                showToast('Data berhasil disimpan ke browser', 'success');
+            } catch (e) {
+                showToast('Gagal menyimpan data: ' + e.message, 'error');
+            }
+        }
+
+        function loadFromLocalStorage() {
+            try {
+                const saved = localStorage.getItem('regressionAnalysis');
+                if (saved) {
+                    const data = JSON.parse(saved);
+                    showToast(`Data tersimpan ditemukan (${new Date(data.timestamp).toLocaleString('id-ID')})`, 'info');
+                    return data;
+                }
+            } catch (e) {
+                console.error('Error loading from localStorage:', e);
+            }
+            return null;
+        }
+
+        // Export Results
+        function exportResults() {
+            if (!currentData.length) {
+                showToast('Tidak ada hasil untuk diekspor', 'warning');
+                return;
+            }
+
+            const text = `
+HASIL ANALISIS REGRESI LINIER SEDERHANA
+========================================
+
+Persamaan Regresi: Y = ${regressionA.toFixed(4)} + ${regressionB.toFixed(4)}X
+
+Statistik:
+- Jumlah Data: ${currentData.length} titik
+- Koefisien Determinasi (R²): ${r2Value.toFixed(4)}
+- Korelasi (r): ${(Math.sqrt(r2Value) * (regressionB >= 0 ? 1 : -1)).toFixed(4)}
+- Slope (b): ${regressionB.toFixed(4)}
+- Intercept (a): ${regressionA.toFixed(4)}
+
+Data Pengujian:
+${currentData.map((d, i) => `${i + 1}. X: ${d.x}, Y: ${d.y}`).join('\n')}
+
+Interpretasi:
+Akurasi Model: ${r2Value >= 0.9 ? 'Sangat Tinggi' : r2Value >= 0.7 ? 'Tinggi' : r2Value >= 0.5 ? 'Sedang' : 'Rendah'}
+
+Generated: ${new Date().toLocaleString('id-ID')}
+            `.trim();
+
+            const blob = new Blob([text], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `regresi-analysis-${Date.now()}.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            showToast('Hasil berhasil diekspor', 'success');
+        }
+
+        // Reset Data
+        function resetData() {
+            if (currentData.length > 0) {
+                if (!confirm('Apakah Anda yakin ingin mereset semua data? Data yang belum disimpan akan hilang.')) {
+                    return;
+                }
+            }
+            location.reload();
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            initIcons();
+            updateDataCount();
+            
+            // Load saved data if exists
+            const saved = loadFromLocalStorage();
+            if (saved && confirm('Ditemukan data tersimpan. Muat data tersebut?')) {
+                // Implementation for loading saved data would go here
+            }
+
+            // Keyboard shortcuts
+            document.addEventListener('keydown', function(e) {
+                if (e.ctrlKey || e.metaKey) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        calculate();
+                    } else if (e.key === 's') {
+                        e.preventDefault();
+                        saveToLocalStorage();
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>
